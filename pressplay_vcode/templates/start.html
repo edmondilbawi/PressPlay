@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PressPlay</title>
+
+<style>
+
+body{
+    margin:0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto;
+    background:#0f172a;
+    color:white;
+}
+
+.hero{
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:20px;
+}
+
+.container{
+    max-width:800px;
+}
+
+h1{
+    font-size:56px;
+    margin-bottom:10px;
+}
+
+.tagline{
+    font-size:20px;
+    color:#cbd5e1;
+    margin-bottom:40px;
+}
+
+.buttons{
+    display:flex;
+    gap:20px;
+    justify-content:center;
+}
+
+.button{
+    padding:16px 28px;
+    border-radius:10px;
+    font-weight:bold;
+    text-decoration:none;
+    transition:.2s;
+}
+
+.primary{
+    background:#2563eb;
+    color:white;
+}
+
+.primary:hover{
+    background:#1d4ed8;
+}
+
+.secondary{
+    background:#1e293b;
+    color:white;
+    border:1px solid #334155;
+}
+
+.secondary:hover{
+    background:#334155;
+}
+
+.features{
+    padding:80px 20px;
+    background:#020617;
+}
+
+.feature-grid{
+    max-width:1000px;
+    margin:auto;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:30px;
+}
+
+.feature{
+    background:#0f172a;
+    padding:25px;
+    border-radius:12px;
+}
+
+.feature h3{
+    margin-top:0;
+}
+
+.footer{
+    text-align:center;
+    padding:30px;
+    color:#64748b;
+}
+
+</style>
+</head>
+
+<body>
+
+<section class="hero">
+<div class="container">
+
+<h1>PressPlay</h1>
+
+<div class="tagline">
+Collaborative subtitle editing with real-time translation and waveform precision.
+</div>
+
+<div class="buttons">
+<a class="button primary" href="/login">Login</a>
+<a class="button secondary" href="/health">Server Status</a>
+</div>
+
+</div>
+</section>
+
+<section class="features">
+
+<div class="feature-grid">
+
+<div class="feature">
+<h3>Real-Time Editing</h3>
+<p>
+Multiple translators can edit subtitles simultaneously with WebSocket live sync.
+</p>
+</div>
+
+<div class="feature">
+<h3>Waveform Precision</h3>
+<p>
+Audio waveform visualization allows frame-level subtitle timing.
+</p>
+</div>
+
+<div class="feature">
+<h3>Translation Memory</h3>
+<p>
+Automatic fuzzy-matching translation memory speeds up large subtitle projects.
+</p>
+</div>
+
+<div class="feature">
+<h3>Browser-Based</h3>
+<p>
+No installation required. Everything runs directly in the browser.
+</p>
+</div>
+
+</div>
+
+</section>
+
+<div class="footer">
+PressPlay Subtitle System
+</div>
+
+</body>
+</html>
