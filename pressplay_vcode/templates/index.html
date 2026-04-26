@@ -1,0 +1,298 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Subtitle Editor</title>
+    <link rel="stylesheet" href="/static/css/index_new9.css">
+    
+    <script src="/static/js/recorder.js"></script>
+
+</head>
+<body>
+    <!-- Video Panel -->
+    <div class="video-panel">
+        <div class="segment-header-bar">
+            <h3>{{ project }} — {{ episode }}</h3>
+        </div>        
+        <video id="videoPlayer" src="/video_stream/{{ project }}/{{ episode }}" style="width: 100%; border-radius: 8px;"></video>
+        
+        
+        
+        <canvas id="waveformCanvas" height="90"></canvas>
+
+        <div id="centered-textbox-wrapper">
+            <div id="centered-textbox" readonly>
+                <span id="scrolling-text"></span>
+            </div>
+        </div>
+
+        <div id="zoomControls" style="
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            gap:10px;
+            margin-top: 0.8em;
+        ">
+            <button onclick="zoomIn()">➕ Zoom In</button>
+            <button onclick="zoomOut()">➖ Zoom Out</button>
+                <button onclick="insertSegmentAtCurrentTime()" style="background:#2e7d32; color:#fff;">
+                    ➕ Insert
+                </button>
+
+                <button onclick="splitSegmentAtCurrentTime()" style="background:#f9a825; color:#000;">
+                    ✂️ Split
+                </button>
+
+                <button onclick="deleteSelectedSegment()" style="background:#c62828; color:#fff;">
+                    🗑 Delete
+                </button>            
+        </div>
+
+        <div style="margin-top: 6px; text-align: center; font-size: 12px; color: #666;">
+            <span id="insert-status">Ready to insert</span>
+            <span style="margin: 0 8px; color: #aaa;">|</span>
+            <span id="region-status">Regions: Visible</span>
+        </div>
+
+
+       
+
+
+        <!-- 🎬 VIDEO CONTROLS -->
+        <div id="videoControls" style="
+            margin-top: 1em;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:10px;
+        ">
+
+            <!-- playback row -->
+            <div style="
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                gap:10px;
+                flex-wrap:wrap;
+            ">
+                <button onclick="seekBySeconds(-5)">⏪ Back 5s</button>
+                <button onclick="video.pause()">⏸ Pause</button>
+                <button onclick="video.play()">▶ Play</button>
+                <button onclick="seekBySeconds(5)">⏩ Forward 5s</button>
+
+                <span style="margin-left: 10px;">
+                    Time: <span id="currentTime">00:00:00:00</span>
+                </span>
+            </div>
+
+
+
+        </div>
+
+        <div style="margin-top: 0.35em; color: #777; font-size: 12px;">
+            Shortcuts:
+            Ctrl+I = Insert |
+            Ctrl+Shift+S = Split |
+            Ctrl+Shift+D = Delete |
+            Numpad * = Record |
+            Numpad +/- = Next/Previous segment |
+            Numpad Enter = Generate TTS |
+            Numpad 0 = Generated wave + video |
+            Numpad 1 = Generated wave + muted video |
+            Numpad 3 = Original video only
+        </div>
+    </div>
+    
+
+    <!-- Segment Panel -->
+    <div class="segment-panel">
+
+        
+
+
+        <div class="segment-grid" id="segment-grid">
+            {% for pair in paired_lines %}
+        <div id="segment-{{ loop.index0 }}"
+            class="segment-box segment"
+            data-start="{{ pair.start }}"
+            data-end="{{ pair.end }}"
+            data-index="{{ loop.index0 }}">
+
+                <!-- English Column -->
+                <div class="segment-col">
+                    <div class="segment-header" style="background-color: {{ speaker_colors[pair.en.speaker] }};">
+                        <select class="speaker-dropdown" data-index="{{ loop.index0 }}" data-lang="en" data-original="{{ pair.en.speaker }}">
+                            <option value="{{ pair.en.speaker }}" selected>{{ pair.en.speaker }}</option>
+                            {% for speaker in all_speakers %}
+                            {% if speaker != pair.en.speaker %}
+                            <option value="{{ speaker }}">{{ speaker }}</option>
+                            {% endif %}
+                            {% endfor %}
+                            <option value="+add_new">+ Add New...</option>
+                        </select>
+                        <span class="cps-display cps-en" data-index="{{ loop.index0 }}"></span>
+                        <span class="live-editor" id="live-{{ loop.index0 }}-en"></span>
+                    </div>
+                    <div class="segment-body">
+                        <textarea class="edit-field" data-index="{{ loop.index0 }}" data-lang="en">{{ pair.en.text }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- Arabic Column -->
+                <div class="segment-col ar">
+                    <div class="segment-header" style="background-color: {{ speaker_colors[pair.ar.speaker] }};">
+                        <strong class="arabic-speaker-name">{{ pair.ar.speaker }}</strong>
+                        <span class="cps-display cps-ar" data-index="{{ loop.index0 }}"></span>
+                        <span class="live-editor" id="live-{{ loop.index0 }}-ar"></span>
+                    </div>
+                    <div class="segment-body">
+                        <textarea class="edit-field" data-index="{{ loop.index0 }}" data-lang="ar">{{ pair.ar.text }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- Timecode -->
+                <div class="timecode">
+                    {{ loop.index }}<br />
+                    {{ pair.start|timecode }}<br />
+                    {{ pair.end|timecode }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Dubbing Panel -->
+    <div class="dubbing-panel">
+        <div id="recording-body" style="padding:10px;">
+            <div style="margin-bottom: 10px;">
+                <label>🎤 Filter:
+                    <select id="speaker-filter">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <br />
+                <label style="margin-top: 5px; display: block;">
+                    <input type="checkbox" id="filter-unrecorded" />
+                    📌 Show unrecorded
+                </label>
+                <label style="margin-top: 5px; display: block;">
+                    <input type="checkbox" id="filter-done-only" />
+                    ✅ Show done
+                </label>
+
+
+
+
+            </div>
+
+            <div><strong>Speaker:</strong> <span id="dubbing-speaker">—</span></div>
+            <div><strong>Start:</strong> <span id="dubbing-start">—</span></div>
+            <div><strong>End:</strong> <span id="dubbing-end">—</span></div>
+            <div style="margin-top: 8px; font-size: 10px; color: #666;">
+                <strong>Adjusted:</strong>
+                <span id="adjusted-start">—</span> → <span id="adjusted-end">—</span>
+            </div>
+            
+            <button id="start-recording" style="margin-top:10px;">Start Recording</button>
+            <button id="stop-recording" disabled>Stop</button>
+            
+            <div style="margin-top: 10px;">
+                <label>
+                    <input type="checkbox" id="segment-done-checkbox" />
+                    ✅ done
+                </label>
+            </div>
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd; text-align:left;">
+                <div style="font-weight: 600; margin-bottom: 8px;">TTS</div>
+
+                <div id="tts-emotion-controls" style="margin:10px 0 8px 0; font-size:13px; line-height:1.5;">
+                    <label style="display:block; margin-bottom:6px;">
+                        Emotion strength:
+                        <input type="range" id="tts-emo-alpha" min="0" max="1.6" step="0.01" value="1" disabled />
+                        <span id="tts-emo-alpha-value">1</span>
+                    </label>
+
+                </div>
+            </div>
+
+
+
+
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd; text-align:left;">
+                <div style="font-weight: 600; margin-bottom: 8px;">TTS Preview</div>
+
+                <button id="tts-btn" style="margin-top:4px;">
+                    🗣 Generate TTS Preview
+                </button>
+                <button id="adapt-segment-btn" style="margin-top:6px;">
+                    Adapt Selected Segment
+                </button>
+
+                <div id="tts-recent-waves-wrap" style="margin-top:8px; font-size:11px; line-height:1.4;">
+                    <div style="margin-bottom:4px;"><strong>Recent TTS Waves:</strong></div>
+                    <select id="tts-recent-waves" style="width:100%; box-sizing:border-box; margin-bottom:6px;">
+                        <option value="">No waves</option>
+                    </select>
+                    <button id="tts-load-selected-wave">Apply Selected Wave</button>
+                </div>
+
+                <div id="tts-fit-box" style="margin-top:10px; font-size:10px; line-height:1.4;">
+                    <div><strong>Segment:</strong> <span id="tts-segment-duration">—</span></div>
+                    <div><strong>TTS:</strong> <span id="tts-audio-duration">—</span></div>
+                    <div><strong>Rate:</strong> <span id="tts-rate-display">—</span></div>
+                    <div><strong>Fit:</strong> <span id="tts-fit-status">—</span></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd; text-align:left;">
+                <div style="font-weight: 600; margin-bottom: 8px;">Voice Clone (VC)</div>
+                <label style="display:block; margin-bottom:6px;">
+                    VC Target Speaker:
+                    <input id="vc-target-speaker" type="text" placeholder="Accent file name (without .wav)" style="width:100%; box-sizing:border-box;" />
+                </label>
+                <button id="vc-btn" style="margin-top:4px;">
+                    Generate VC (From Recorded Audio)
+                </button>
+                <button id="vc-original-btn" style="margin-top:6px;">
+                    Generate VC (From Original)
+                </button>
+            </div>
+            
+            <button id="preview-btn" style="margin-top:10px;">▶ Preview Recording</button>
+            <audio id="dubbing-audio" controls style="margin-top:0.5em; width:100%;"></audio>
+
+            <div id="waveform-track-wrapper">
+                <div id="waveform-timeline"></div>
+                <div id="waveform-cursor"></div>
+            </div>
+        <div style="margin-bottom: 1em;" id="column-visibility-controls">
+            <details>
+                <summary>🧩 Show/Hide Columns</summary>
+                <label><input type="checkbox" id="toggle-english" checked> English segments</label><br>
+                <label><input type="checkbox" id="toggle-arabic" checked> Arabic segments</label><br>
+                <label><input type="checkbox" id="toggle-timecode" checked> Time code</label>
+            </details>
+        </div>            
+        </div>
+    </div>
+
+    <script>
+        window.__EDITOR_BOOTSTRAP__ = {
+            recordingsMeta: {{ recordings_meta | tojson | default('[]') }},
+            project: "{{ project }}",
+            episode: "{{ episode }}",
+            speakers: [{% for speaker in all_speakers %}"{{ speaker }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+        };
+    </script>
+    <script src="/static/js/index_new9/core.js?v=20260414_segment_ops_single_refresh_v8"></script>
+    <script src="/static/js/index_new9/waveform.js"></script>
+    <script src="/static/js/index_new9/segments.js?v=20260414_split_midpoint_single_refresh_v4"></script>
+    <script src="/static/js/index_new9/recording.js?v=20260414_segment_seek_with_ready_guard_v5"></script>
+    <script src="/static/js/index_new9/tts.js?v=20260423_tag_only_emotion"></script>
+    <script src="/static/js/index_new9/app_main.js?v=20260414_ws_segments_changed_dedupe_v19"></script>
+    <script src="/static/js/index_new9/realtime.js?v=20260414_no_split_override_v2"></script>
+</body>
+</html>
+
+
+

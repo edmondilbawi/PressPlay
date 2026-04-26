@@ -1,0 +1,50 @@
+{
+  "admin@example.com": {
+    "password": "adminadmin",
+    "role": "admin"
+  },
+  "editor@example.com": {
+    "password": "editor123",
+    "role": "editor"
+  },
+  "dana": {
+    "password": "123",
+    "role": "editor"
+  },
+  "Amy": {
+    "password": "123",
+    "role": "editor"
+  },
+  "Maram": {
+    "password": "123",
+    "role": "editor"
+  },
+  "amy": {
+    "password": "123",
+    "role": "editor"
+  },
+  "fadi": {
+    "password": "123",
+    "role": "editor"
+  },
+  "Jad": {
+    "password": "123",
+    "role": "editor"
+  },
+  "khudr": {
+    "password": "khudr123",
+    "role": "editor"
+  },
+  "mazen": {
+    "password": "123",
+    "role": "editor"
+  },
+  "IPH": {
+    "password": "ENI3128",
+    "role": "editor"
+  },
+  "Edmond": {
+    "password": "123",
+    "role": "editor"
+  }
+}

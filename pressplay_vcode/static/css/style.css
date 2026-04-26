@@ -1,0 +1,49 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #fafafa;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3 {
+  margin: 0.5em 0;
+}
+
+.video-panel video {
+  width: 100%;
+  height: auto;
+}
+
+.segment-panel {
+  padding: 1rem;
+}
+
+.segment-box {
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: #fefefe;
+}
+
+.segment-header {
+  font-weight: bold;
+  background-color: #eee;
+  padding: 5px;
+}
+
+textarea.edit-field {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 5px;
+  resize: vertical;
+}
+
+.dubbing-panel {
+  padding: 1rem;
+}
+
+button, select {
+  font-size: 1rem;
+  padding: 0.3em 0.5em;
+}

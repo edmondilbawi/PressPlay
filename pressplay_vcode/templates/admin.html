@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      display: flex;
+      gap: 2rem;
+    }
+    .column {
+      flex: 1;
+    }
+    select, input, textarea {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.8rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    h2 {
+      margin-top: 2rem;
+    }
+    .status-message {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    .episode-list {
+      margin-top: 1rem;
+      border-top: 1px solid #ccc;
+      padding-top: 1rem;
+    }
+    .episode-item {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #fafafa;
+    }
+    .episode-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .action-status {
+      font-size: 12px;
+      color: #555;
+      min-width: 140px;
+    }
+    .tts-btn {
+      background: #1f6feb;
+      color: white;
+      width: auto;
+    }
+    .tts-btn:hover {
+      background: #1558b0;
+    }
+    .adl-btn {
+      background: #555;
+      color: white;
+      width: auto;
+    }
+    .adl-btn:hover {
+      background: #333;
+    }
+    .tts-btn:disabled,
+    .adl-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .upload-form {
+      margin-top: 0.75rem;
+    }
+    .adl-options {
+      margin-top: 12px;
+      padding: 10px;
+      background: #f3f4f6;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .adl-options label {
+      display: block;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .adl-options .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .adl-speakers {
+      min-height: 110px;
+    }
+    .adl-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .adl-checkbox-row input[type="checkbox"] {
+      width: auto;
+      margin-top: 0;
+    }
+    .small-btn {
+      width: auto;
+      background: #e5e7eb;
+      color: #111;
+      border: 1px solid #ccc;
+      padding: 0.35rem 0.55rem;
+      margin-right: 6px;
+    }
+    .small-btn:hover {
+      background: #d1d5db;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="column">
+    <h1>Assign Users to Episodes</h1>
+    <form id="assign-form" action="/admin/assign_user" method="post">
+      <label for="project-select">Project Title:</label>
+      <select id="project-select" name="title" required>
+        <option value="">-- Select Project --</option>
+        {% for project in projects %}
+        <option value="{{ project }}">{{ project }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="episode-select">Episode:</label>
+      <select id="episode-select" name="episode" required>
+        <option value="">-- Select Episode --</option>
+      </select>
+
+      <label for="user-select">User to Assign:</label>
+      <select id="user-select" name="username" required>
+        <option value="">-- Select User --</option>
+        {% for user in users %}
+        <option value="{{ user.username }}">{{ user.username }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit">Assign</button>
+    </form>
+
+    <div id="assigned-users" style="margin-top: 1rem;"></div>
+    <div class="episode-list" id="episode-list"></div>
+  </div>
+
+  <div class="column">
+    <h2>Create New User</h2>
+    <form method="post" action="/admin/create_user">
+      <input type="text" name="username" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <select name="role" required>
+        <option value="editor">Editor</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button type="submit">Create User</button>
+    </form>
+
+    {% if request.session.flash %}
+      <p class="status-message" style="color: {{ 'green' if request.session.flash.type == 'success' else 'red' }};">
+        {{ request.session.flash.message }}
+      </p>
+      {% set _ = request.session.pop('flash') %}
+    {% endif %}
+
+    {% if user_created %}
+      <p class="status-message" style="color: green;">✅ User {{ user_created }} created.</p>
+    {% elif user_exists %}
+      <p class="status-message" style="color: red;">❌ User {{ user_exists }} already exists.</p>
+    {% endif %}
+
+    <h2>Create or Extend Project</h2>
+    <form method="post" action="/admin/create_project">
+      <label for="project-picker">Project Title:</label>
+      <select name="project_select" id="project-picker" onchange="clearTextProject(); handleProjectPickerChange(this.value)">
+        <option value="">-- Select Existing Project --</option>
+        {% for project in projects %}
+        <option value="{{ project }}">{{ project }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="project-episode-picker">Episode:</label>
+      <select id="project-episode-picker" onchange="handleProjectEpisodeChange(this.value)">
+        <option value="">-- Select Episode --</option>
+      </select>
+
+      <input type="text" id="project_input" name="project_input" placeholder="Or enter new project name" oninput="clearDropdownProject()">
+      <p id="episode-info" style="color: #555; font-style: italic;"></p>
+
+      <label for="episode_count">Number of Episodes to Create:</label>
+      <input type="number" name="episode_count" id="episode_count" placeholder="e.g. 3" min="1" required>
+
+      <button type="submit">Create/Add Episodes</button>
+    </form>
+
+    {% if project_created %}
+      <p class="status-message" style="color: green;">✅ Project '{{ project_created }}': {{ episode_created }} episode{{ episode_created != 1 and 's' or '' }} created.</p>
+    {% elif project_exists %}
+      <p class="status-message" style="color: red;">❌ Project '{{ project_exists }}' already exists.</p>
+    {% endif %}
+  </div>
+
+  <script>
+    const DEFAULT_ADL_EXPORT_ROOT = "/home/william/pressplay/subtitles";
+
+    function clearTextProject() {
+      document.getElementById('project_input').value = '';
+    }
+
+    function clearDropdownProject() {
+      document.getElementById('project-picker').selectedIndex = 0;
+      const projectEpisodePicker = document.getElementById('project-episode-picker');
+      projectEpisodePicker.innerHTML = '<option value="">-- Select Episode --</option>';
+      document.getElementById('episode-info').textContent = '';
+      document.getElementById('episode-list').innerHTML = '';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function buildDefaultCopyFolder(project, episode) {
+      return `${DEFAULT_ADL_EXPORT_ROOT}/${project}/${episode}/adl_export`;
+    }
+
+    function getSelectedValues(selectEl) {
+      return Array.from(selectEl.selectedOptions).map(o => o.value);
+    }
+
+    function selectAllSpeakers(btn) {
+      const wrapper = btn.closest(".adl-options");
+      const select = wrapper.querySelector(".adl-speakers");
+      Array.from(select.options).forEach(opt => opt.selected = true);
+    }
+
+    function clearAllSpeakers(btn) {
+      const wrapper = btn.closest(".adl-options");
+      const select = wrapper.querySelector(".adl-speakers");
+      Array.from(select.options).forEach(opt => opt.selected = false);
+    }
+
+
+    async function handleProjectPickerChange(project) {
+      const episodePicker = document.getElementById('project-episode-picker');
+      const listDiv = document.getElementById('episode-list');
+      const infoBox = document.getElementById('episode-info');
+
+      episodePicker.innerHTML = '<option value="">-- Select Episode --</option>';
+      listDiv.innerHTML = '';
+      infoBox.textContent = '';
+
+      if (!project) return;
+
+      try {
+        const [countRes, episodesRes] = await Promise.all([
+          fetch(`/admin/project_episode_count?project=${encodeURIComponent(project)}`),
+          fetch(`/admin/project_episodes?project=${encodeURIComponent(project)}`)
+        ]);
+
+        const countData = await countRes.json();
+        const episodesData = await episodesRes.json();
+        const episodes = Array.isArray(episodesData.episodes) ? episodesData.episodes : [];
+
+        infoBox.textContent = `🧾 Project '${countData.project || project}' already has ${countData.count || 0} episode${(countData.count || 0) !== 1 ? 's' : ''}. Select one episode below to manage it.`;
+
+        const sortedEpisodes = episodes
+          .filter(ep => typeof ep === 'object' && ep.name)
+          .sort((a, b) => {
+            const numA = parseInt(a.name.match(/\d+/)?.[0] || 0, 10);
+            const numB = parseInt(b.name.match(/\d+/)?.[0] || 0, 10);
+            return numA - numB;
+          });
+
+        for (const ep of sortedEpisodes) {
+          const option = document.createElement('option');
+          option.value = ep.name;
+          option.textContent = ep.name;
+          episodePicker.appendChild(option);
+        }
+
+        if (sortedEpisodes.length === 1) {
+          episodePicker.value = sortedEpisodes[0].name;
+          await fetchEpisodeList(project, sortedEpisodes[0].name);
+        }
+      } catch (err) {
+        console.error('Project episode picker load failed:', err);
+        infoBox.textContent = '❌ Failed to load project episodes.';
+      }
+    }
+
+    async function handleProjectEpisodeChange(episode) {
+      const project = document.getElementById('project-picker').value;
+      await fetchEpisodeList(project, episode);
+    }
+    async function fetchEpisodeSpeakers(project, episode) {
+      const res = await fetch(`/admin/episode_speakers?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(episode)}`);
+      const data = await res.json();
+      return Array.isArray(data.speakers) ? data.speakers : [];
+    }
+
+    async function generateEpisodeTTS(project, episode, btn) {
+      const wrapper = btn.closest(".episode-actions");
+      const status = wrapper.querySelector(".tts-status");
+
+      if (!confirm(`Generate TTS for ${episode}?`)) return;
+
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = "⏳ Generating...";
+      status.textContent = "Processing...";
+
+      try {
+        const res = await fetch("/admin/generate_tts_episode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project, episode })
+        });
+
+        const data = await res.json();
+
+        if (data.status === "ok") {
+          status.textContent = `✅ Done (${data.generated || 0} segments)`;
+        } else {
+          status.textContent = `❌ Failed${data.message ? ": " + data.message : ""}`;
+        }
+      } catch (err) {
+        console.error("Generate TTS failed:", err);
+        status.textContent = "❌ Error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    }
+
+    async function exportADL(project, episode, btn) {
+      const item = btn.closest(".episode-item");
+      const wrapper = btn.closest(".episode-actions");
+      const status = wrapper.querySelector(".adl-status");
+      const speakerSelect = item.querySelector(".adl-speakers");
+      const copyCheckbox = item.querySelector(".copy-wavs-checkbox");
+      const copyFolderInput = item.querySelector(".copy-folder-input");
+      const doneOnlyCheckbox = item.querySelector(".done-only-checkbox");
+      const trackModeSelect = item.querySelector(".track-mode-select");
+
+      const speakers = getSelectedValues(speakerSelect);
+      const copy_wavs = !!copyCheckbox.checked;
+      const copy_folder = copyFolderInput.value.trim();
+      const done_only = !!doneOnlyCheckbox.checked;
+      const track_mode = trackModeSelect.value || "multi_track_by_speaker";
+
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = "⏳ Exporting...";
+      status.textContent = "Processing...";
+
+      try {
+        const res = await fetch("/admin/export_adl_episode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project,
+            episode,
+            speakers,
+            copy_wavs,
+            copy_folder,
+            done_only,
+            track_mode
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.status === "ok") {
+          const modeLabel = data.track_mode === "single_track"
+            ? "single track"
+            : `${data.track_count || 0} tracks`;
+
+          const doneLabel = data.done_only ? ", done only" : "";
+          status.textContent = `✅ ADL saved to server (${data.exported_items || 0} clips, ${modeLabel}${doneLabel})`;
+        } else {
+          status.textContent = `❌ Failed${data.message ? ": " + data.message : ""}`;
+        }
+      } catch (e) {
+        console.error("Export ADL failed:", e);
+        status.textContent = "❌ Error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    }
+
+    async function clearDoneMarksForEpisode(project, episode, checkbox) {
+      if (!checkbox.checked) return;
+
+      const ok = confirm(`Unmark all done segments for ${episode}?`);
+      if (!ok) {
+        checkbox.checked = false;
+        return;
+      }
+
+      checkbox.disabled = true;
+
+      const item = checkbox.closest(".episode-item");
+      const status = item.querySelector(".adl-status");
+
+      if (status) {
+        status.textContent = "Clearing done marks...";
+      }
+
+      try {
+        const res = await fetch(
+          `/get_done_states?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(episode)}`
+        );
+        const data = await res.json();
+
+        if (data.status !== "ok" || !Array.isArray(data.done_states)) {
+          throw new Error(data.message || "Failed to load done states");
+        }
+
+        const marked = data.done_states.filter(x => x && x.is_done);
+
+        for (const itemState of marked) {
+          const formData = new FormData();
+          formData.append("project", project);
+          formData.append("episode", episode);
+          formData.append("index", itemState.index);
+          formData.append("is_done", "false");
+
+          const saveRes = await fetch("/save_done_state", {
+            method: "POST",
+            body: formData
+          });
+
+          const saveData = await saveRes.json();
+          if (saveData.status !== "ok") {
+            throw new Error(saveData.message || `Failed at segment ${itemState.index}`);
+          }
+        }
+
+        if (status) {
+          status.textContent = `✅ Cleared ${marked.length} done mark(s)`;
+        }
+      } catch (err) {
+        console.error("Clear done marks failed:", err);
+        if (status) {
+          status.textContent = `❌ Failed: ${err.message || err}`;
+        }
+      } finally {
+        checkbox.checked = false;
+        checkbox.disabled = false;
+      }
+    }
+
+    async function renderEpisodeItem(project, ep) {
+      const speakers = await fetchEpisodeSpeakers(project, ep.name);
+      const speakerOptions = speakers
+        .map(spk => `<option value="${escapeHtml(spk)}" selected>${escapeHtml(spk)}</option>`)
+        .join("");
+
+      const defaultCopyFolder = buildDefaultCopyFolder(project, ep.name);
+
+      return `
+        <div class="episode-item">
+          <strong>${escapeHtml(ep.name)}</strong>
+
+          <div style="margin: 4px 0 8px;">
+            <span style="color: ${ep.has_video ? 'green' : 'gray'}; margin-right: 10px;">
+              ${ep.has_video ? '✅ Video' : '📄 Video'}
+            </span>
+            <span style="color: ${ep.has_csv_en ? 'green' : 'gray'}; margin-right: 10px;">
+              ${ep.has_csv_en ? '✅ EN CSV' : '📄 EN CSV'}
+            </span>
+            <span style="color: ${ep.has_csv_ar ? 'green' : 'gray'};">
+              ${ep.has_csv_ar ? '✅ AR CSV' : '📄 AR CSV'}
+            </span>
+          </div>
+
+          <form class="upload-form" action="/admin/upload" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="project" value="${escapeHtml(project)}" />
+            <input type="hidden" name="episode" value="${escapeHtml(ep.name)}" />
+
+            <label>Upload Video:</label>
+            <input type="file" name="video" accept="video/*">
+
+            <label>Upload English CSV:</label>
+            <input type="file" name="csv_en" accept=".csv">
+
+            <label>Upload Arabic CSV:</label>
+            <input type="file" name="csv_ar" accept=".csv">
+
+            <button type="submit">Upload</button>
+          </form>
+
+          <div class="adl-options">
+            <label>Characters for ADL export:</label>
+            <select class="adl-speakers" multiple size="6">
+              ${speakerOptions || '<option value="" disabled>No speakers found</option>'}
+            </select>
+            <div class="hint">Leave all selected to export all characters for this episode.</div>
+
+            <div style="margin-top: 6px;">
+              <button type="button" class="small-btn" onclick="selectAllSpeakers(this)">Select all</button>
+              <button type="button" class="small-btn" onclick="clearAllSpeakers(this)">Clear</button>
+            </div>
+
+            <div class="adl-checkbox-row">
+              <input type="checkbox" class="done-only-checkbox" id="done-${escapeHtml(ep.name)}">
+              <label for="done-${escapeHtml(ep.name)}" style="margin:0; font-weight:normal;">Export only segments marked as done</label>
+            </div>
+
+            <div class="adl-checkbox-row">
+              <input
+                type="checkbox"
+                class="clear-done-checkbox"
+                id="clear-done-${escapeHtml(ep.name)}"
+                onchange="clearDoneMarksForEpisode('${escapeHtml(project)}', '${escapeHtml(ep.name)}', this)"
+              >
+              <label for="clear-done-${escapeHtml(ep.name)}" style="margin:0; font-weight:normal;">Unmark all marked as done</label>
+            </div>
+            <div class="hint">Clears all segment done flags for this episode.</div>
+
+            <label>Track mode:</label>
+            <select class="track-mode-select">
+              <option value="multi_track_by_speaker" selected>Multi track by speaker</option>
+              <option value="single_track">Single track</option>
+            </select>
+            <div class="hint">Single track puts all exported clips on one track. Multi track creates one track per speaker.</div>
+
+            <div class="adl-checkbox-row">
+              <input type="checkbox" class="copy-wavs-checkbox" id="copy-${escapeHtml(ep.name)}">
+              <label for="copy-${escapeHtml(ep.name)}" style="margin:0; font-weight:normal;">Copy WAVs related to this ADL</label>
+            </div>
+
+            <label>Copy WAVs to folder:</label>
+            <input
+              type="text"
+              class="copy-folder-input"
+              value="${escapeHtml(defaultCopyFolder)}"
+              placeholder="/home/william/pressplay/subtitles/<project>/<episode>/adl_export"
+            >
+            <div class="hint">Server path on Linux. Uses /home/william/pressplay/subtitles by default.</div>
+          </div>
+
+          <div class="episode-actions">
+            <button
+              type="button"
+              class="tts-btn"
+              onclick="generateEpisodeTTS('${escapeHtml(project)}', '${escapeHtml(ep.name)}', this)">
+              🎤 Generate TTS
+            </button>
+            <span class="action-status tts-status"></span>
+
+            <button
+              type="button"
+              class="adl-btn"
+              onclick="exportADL('${escapeHtml(project)}', '${escapeHtml(ep.name)}', this)">
+              ⬇️ Export ADL
+            </button>
+            <span class="action-status adl-status"></span>
+          </div>
+
+          <div style="margin-top: 0.5em;">
+            <strong>Export Final CSVs:</strong><br>
+            <a href="/export?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(ep.name)}" target="_blank">⬇️ English</a> |
+            <a href="/export_ar?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(ep.name)}" target="_blank">⬇️ Arabic</a> |
+            <a href="/export_merged?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(ep.name)}" target="_blank">⬇️ Merged</a>
+          </div>
+        </div>`;
+    }
+
+    async function fetchEpisodeList(project, selectedEpisode = "") {
+      console.log("fetching", project, selectedEpisode);
+      const listDiv = document.getElementById('episode-list');
+      listDiv.innerHTML = '';
+
+      if (!project) return;
+      if (!selectedEpisode) {
+        listDiv.innerHTML = `<p>Select an episode from the dropdown above.</p>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/admin/project_episodes?project=${encodeURIComponent(project)}`);
+        const data = await res.json();
+
+        if (Array.isArray(data.episodes) && data.episodes.length > 0) {
+          const selected = data.episodes.find(ep => typeof ep === 'object' && ep.name === selectedEpisode);
+
+          if (selected) {
+            listDiv.innerHTML = `<h3>Episode '${escapeHtml(selectedEpisode)}' in '${escapeHtml(project)}'</h3>`;
+            listDiv.innerHTML += await renderEpisodeItem(project, selected);
+          } else {
+            listDiv.innerHTML = `<p>No episode named '${escapeHtml(selectedEpisode)}' found in '${escapeHtml(project)}'.</p>`;
+          }
+        } else {
+          listDiv.innerHTML = `<p>No episodes found in '${escapeHtml(project)}'.</p>`;
+        }
+      } catch (err) {
+        console.error('Episode fetch failed:', err);
+        listDiv.innerHTML = `<p style='color:red;'>Failed to load episodes for '${escapeHtml(project)}'</p>`;
+      }
+    }
+  </script>
+
+  <script>
+    document.getElementById("project-select").addEventListener("change", function () {
+      const project = this.value;
+      const episodeSelect = document.getElementById("episode-select");
+      episodeSelect.innerHTML = '<option value="">-- Select Episode --</option>';
+
+      if (project) {
+        fetch(`/admin/project_episodes?project=${encodeURIComponent(project)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data.episodes)) {
+              data.episodes.forEach(ep => {
+                if (typeof ep === 'object' && ep.name) {
+                  const option = document.createElement("option");
+                  option.value = ep.name;
+                  option.textContent = ep.name;
+                  episodeSelect.appendChild(option);
+                }
+              });
+            }
+          })
+          .catch(err => {
+            console.error("Failed to fetch episodes:", err);
+          });
+      }
+    });
+  </script>
+
+  <script>
+    document.getElementById("episode-select").addEventListener("change", function () {
+      const project = document.getElementById("project-select").value;
+      const episode = this.value;
+      const assignedDiv = document.getElementById("assigned-users");
+
+      assignedDiv.innerHTML = "";
+      if (project && episode) {
+        fetch(`/admin/assigned_users?project=${encodeURIComponent(project)}&episode=${encodeURIComponent(episode)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.users.length > 0) {
+              const userButtons = data.users.map(user =>
+                `<span style="margin-right: 0.5rem;">
+                  ${escapeHtml(user)} <button type="button" data-user="${escapeHtml(user)}" class="remove-user" style="color:red; width:auto;">❌</button>
+                </span>`
+              ).join("");
+              assignedDiv.innerHTML = `<strong>Assigned Users:</strong><br>${userButtons}`;
+            } else {
+              assignedDiv.innerHTML = `<strong>No users assigned.</strong>`;
+            }
+          });
+      }
+    });
+  </script>
+
+  <script>
+    document.addEventListener("click", function (e) {
+      if (e.target.classList.contains("remove-user")) {
+        const username = e.target.getAttribute("data-user");
+        const project = document.getElementById("project-select").value;
+        const episode = document.getElementById("episode-select").value;
+
+        const formData = new FormData();
+        formData.append("project", project);
+        formData.append("episode", episode);
+        formData.append("username", username);
+
+        fetch("/admin/unassign_user", {
+          method: "POST",
+          body: formData
+        })
+          .then(res => res.json())
+          .then(data => {
+            console.log("Unassigned:", data);
+            refreshAssignedUsers();
+          })
+          .catch(err => console.error("Failed to unassign:", err));
+      }
+    });
+
+    function refreshAssignedUsers() {
+      const episodeSelect = document.getElementById("episode-select");
+      if (episodeSelect) {
+        episodeSelect.dispatchEvent(new Event("change"));
+      }
+    }
+  </script>
+
+</body>
+</html>
